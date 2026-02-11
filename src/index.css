@@ -1,0 +1,6 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* demo: un poco de suavizado */
+:root { color-scheme: dark; }
