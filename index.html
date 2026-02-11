@@ -1,0 +1,480 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>TradeVerify — Verificación Bancaria</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 text-slate-900">
+  <div class="max-w-7xl mx-auto p-4">
+    <header class="flex items-center justify-between gap-3 mb-4">
+      <div>
+        <h1 class="text-2xl font-semibold">TradeVerify</h1>
+        <p class="text-sm text-slate-600">Checklist objetivo (SWIFT / Bank-to-bank / Bankable) + semáforo</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button id="btnExport" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Exportar JSON</button>
+        <label class="px-3 py-2 rounded-lg bg-white border text-sm cursor-pointer">
+          Importar JSON
+          <input id="fileImport" type="file" accept="application/json" class="hidden">
+        </label>
+      </div>
+    </header>
+
+    <div class="grid grid-cols-12 gap-4">
+      <!-- Left: Deals -->
+      <aside class="col-span-12 md:col-span-4 bg-white rounded-xl border p-3">
+        <div class="flex items-center justify-between mb-2">
+          <h2 class="font-semibold">Operaciones</h2>
+          <button id="btnNew" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-sm">+ Nueva</button>
+        </div>
+        <div class="space-y-2" id="dealList"></div>
+      </aside>
+
+      <!-- Right: Details -->
+      <main class="col-span-12 md:col-span-8 bg-white rounded-xl border p-4">
+        <div id="emptyState" class="text-slate-600">
+          Seleccioná o creá una operación.
+        </div>
+
+        <div id="detail" class="hidden">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2">
+                <h2 id="dealTitle" class="text-xl font-semibold"></h2>
+                <span id="badge" class="text-xs px-2 py-1 rounded-full border"></span>
+              </div>
+              <p class="text-sm text-slate-600" id="dealSubtitle"></p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btnIssuerMsg" class="px-3 py-2 rounded-lg bg-white border text-sm">Mensaje emisor</button>
+              <button id="btnReceiverMsg" class="px-3 py-2 rounded-lg bg-white border text-sm">Mensaje receptor</button>
+              <button id="btnDelete" class="px-3 py-2 rounded-lg bg-rose-600 text-white text-sm">Eliminar</button>
+            </div>
+          </div>
+
+          <!-- Tabs -->
+          <div class="mt-4 border-b flex gap-2">
+            <button data-tab="overview" class="tab px-3 py-2 text-sm border-b-2 border-slate-900">Resumen</button>
+            <button data-tab="level1" class="tab px-3 py-2 text-sm text-slate-600">Nivel 1 — SWIFT</button>
+            <button data-tab="level2" class="tab px-3 py-2 text-sm text-slate-600">Nivel 2 — Banco↔Banco</button>
+            <button data-tab="level3" class="tab px-3 py-2 text-sm text-slate-600">Nivel 3 — Bankable</button>
+          </div>
+
+          <!-- Overview -->
+          <section id="tab-overview" class="tabPanel mt-4 space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="p-3 rounded-xl bg-slate-50 border">
+                <div class="text-xs text-slate-600">Semáforo</div>
+                <div class="mt-2 flex items-center gap-3">
+                  <div id="traffic" class="w-3 h-3 rounded-full"></div>
+                  <div>
+                    <div id="statusLine" class="font-semibold"></div>
+                    <div id="statusHint" class="text-sm text-slate-600"></div>
+                  </div>
+                </div>
+              </div>
+              <div class="p-3 rounded-xl bg-slate-50 border">
+                <div class="text-xs text-slate-600">Notas</div>
+                <textarea id="notes" class="mt-2 w-full h-20 p-2 rounded-lg border bg-white text-sm" placeholder="Notas operativas..."></textarea>
+              </div>
+            </div>
+
+            <div class="p-3 rounded-xl border">
+              <h3 class="font-semibold mb-2">Datos clave</h3>
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <label class="text-sm">
+                  <span class="text-slate-600">Instrumento</span>
+                  <input id="instrument" class="mt-1 w-full p-2 rounded-lg border" placeholder="MT700 / MT707 / SBLC...">
+                </label>
+                <label class="text-sm">
+                  <span class="text-slate-600">LC No / Ref</span>
+                  <input id="lcno" class="mt-1 w-full p-2 rounded-lg border" placeholder="Field 20 / LC No">
+                </label>
+                <label class="text-sm">
+                  <span class="text-slate-600">Sender BIC</span>
+                  <input id="senderBic" class="mt-1 w-full p-2 rounded-lg border" placeholder="BAHLPKKACPU">
+                </label>
+                <label class="text-sm">
+                  <span class="text-slate-600">Receiver BIC</span>
+                  <input id="receiverBic" class="mt-1 w-full p-2 rounded-lg border" placeholder="CHASUS33XXX">
+                </label>
+                <label class="text-sm">
+                  <span class="text-slate-600">MUR (108)</span>
+                  <input id="mur" class="mt-1 w-full p-2 rounded-lg border" placeholder="EN4541850">
+                </label>
+                <label class="text-sm">
+                  <span class="text-slate-600">MIR / Input Ref</span>
+                  <input id="mir" class="mt-1 w-full p-2 rounded-lg border" placeholder="1938 260206...">
+                </label>
+                <label class="text-sm md:col-span-2">
+                  <span class="text-slate-600">Beneficiary (59)</span>
+                  <input id="beneficiary" class="mt-1 w-full p-2 rounded-lg border" placeholder="DON BOSCO CORP, address...">
+                </label>
+              </div>
+            </div>
+          </section>
+
+          <!-- Level 1 -->
+          <section id="tab-level1" class="tabPanel hidden mt-4 space-y-3">
+            <div class="text-sm text-slate-600">
+              Mínimo técnico: <b>SWIFT print con headers</b> + <b>ACK/Delivery</b> + identificadores.
+            </div>
+            <div id="lvl1List" class="space-y-2"></div>
+          </section>
+
+          <!-- Level 2 -->
+          <section id="tab-level2" class="tabPanel hidden mt-4 space-y-3">
+            <div class="text-sm text-slate-600">
+              Confirmación banco↔banco: <b>MT799/MT199</b> o <b>TRACE</b> o estado en Trade Finance con ticket.
+            </div>
+            <div id="lvl2List" class="space-y-2"></div>
+          </section>
+
+          <!-- Level 3 -->
+          <section id="tab-level3" class="tabPanel hidden mt-4 space-y-3">
+            <div class="text-sm text-slate-600">
+              Bankable: sin soft clauses que impidan discounting (non-operative, buyer approval, etc).
+            </div>
+            <div id="lvl3List" class="space-y-2"></div>
+          </section>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div id="modal" class="fixed inset-0 bg-black/40 hidden items-center justify-center p-4">
+    <div class="bg-white rounded-xl border max-w-2xl w-full p-4">
+      <div class="flex items-center justify-between gap-2">
+        <h3 id="modalTitle" class="font-semibold"></h3>
+        <button id="modalClose" class="px-2 py-1 rounded-lg border text-sm">Cerrar</button>
+      </div>
+      <textarea id="modalText" class="mt-3 w-full h-56 p-3 rounded-lg border text-sm"></textarea>
+      <div class="mt-3 flex items-center justify-between">
+        <div class="text-xs text-slate-500">Tip: copiá y pegá tal cual.</div>
+        <button id="modalCopy" class="px-3 py-2 rounded-lg bg-slate-900 text-white text-sm">Copiar</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const STORAGE_KEY = "tradeverify:v1";
+
+  const defaultChecklists = {
+    level1: [
+      { id:"l1_print", label:"SWIFT print con headers (FIN 700/707/799/199)", must:true },
+      { id:"l1_ack", label:"Network ACK/Delivery visible (no solo 'sent')", must:true },
+      { id:"l1_ids", label:"MIR + MUR + LC No citables", must:true },
+      { id:"l1_59", label:"Field 59 (Beneficiary) match 1:1 con banco receptor", must:true },
+      { id:"l1_trailer", label:"Trailer/CHK/Network report presente (si aplica)", must:false },
+    ],
+    level2: [
+      { id:"l2_799_199", label:"MT799 o MT199 a CHASUS33 pidiendo/confirmando receipt+allocation (con print+ACK)", must:true },
+      { id:"l2_trade_status", label:"Trade Finance confirma status (Received/Pending/Not received) + Case/Ticket", must:false },
+      { id:"l2_trace", label:"SWIFT TRACE report del emisor (si el receptor no lo ve)", must:false },
+    ],
+    level3: [
+      { id:"l3_no_nonop", label:"No existe cláusula NON-OPERATIVE / gatillos por cartas/MT799 para activar", must:true },
+      { id:"l3_no_subjective", label:"No hay 'buyer/applicant approval' ni pago sujeto a inspección presentada por buyer", must:true },
+      { id:"l3_ucp600", label:"UCP 600 explícito (no 'latest version')", must:true },
+      { id:"l3_docs", label:"Documentos razonables (sin requisitos imposibles para forzar discrepancias)", must:false },
+    ],
+  };
+
+  function load() {
+    try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || { deals: [], selectedId: null }; }
+    catch { return { deals: [], selectedId: null }; }
+  }
+  function save(state) { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+
+  let state = load();
+
+  const el = (id) => document.getElementById(id);
+  const dealList = el("dealList");
+  const emptyState = el("emptyState");
+  const detail = el("detail");
+
+  const fields = ["instrument","lcno","senderBic","receiverBic","mur","mir","beneficiary","notes"];
+  const lvl1List = el("lvl1List");
+  const lvl2List = el("lvl2List");
+  const lvl3List = el("lvl3List");
+
+  function newDeal() {
+    const id = crypto.randomUUID();
+    const deal = {
+      id,
+      title: "Nueva operación",
+      createdAt: new Date().toISOString(),
+      data: { instrument:"MT700", lcno:"", senderBic:"", receiverBic:"", mur:"", mir:"", beneficiary:"", notes:"" },
+      checks: {
+        level1: Object.fromEntries(defaultChecklists.level1.map(x=>[x.id,{ ok:false, note:"" }])),
+        level2: Object.fromEntries(defaultChecklists.level2.map(x=>[x.id,{ ok:false, note:"" }])),
+        level3: Object.fromEntries(defaultChecklists.level3.map(x=>[x.id,{ ok:false, note:"" }])),
+      }
+    };
+    state.deals.unshift(deal);
+    state.selectedId = id;
+    save(state);
+    render();
+  }
+
+  function deleteDeal() {
+    const id = state.selectedId;
+    if(!id) return;
+    state.deals = state.deals.filter(d => d.id !== id);
+    state.selectedId = state.deals[0]?.id || null;
+    save(state);
+    render();
+  }
+
+  function selectDeal(id) {
+    state.selectedId = id;
+    save(state);
+    render();
+  }
+
+  function computeStatus(deal) {
+    const mustOk = (lvl, list) => list.filter(x=>x.must).every(x => deal.checks[lvl][x.id]?.ok);
+
+    const l1 = mustOk("level1", defaultChecklists.level1);
+    const l2 = mustOk("level2", defaultChecklists.level2);
+    const l3 = mustOk("level3", defaultChecklists.level3);
+
+    if(!l1) return { color:"red", badge:"ROJO", line:"No verificado", hint:"Falta evidencia SWIFT mínima (print+ACK+IDs)." };
+    if(l1 && !l2) return { color:"amber", badge:"AMARILLO", line:"En verificación", hint:"Falta confirmación banco↔banco (MT799/199 o TRACE)." };
+    if(l1 && l2 && !l3) return { color:"amber", badge:"AMARILLO+", line:"Casi bankable", hint:"Aparece en bancos, pero hay cláusulas/condiciones que traban discounting." };
+    return { color:"green", badge:"VERDE", line:"Verificado y bankable", hint:"Listo para avanzar (sujeto a compliance del discounter)." };
+  }
+
+  function renderDealList() {
+    dealList.innerHTML = "";
+    state.deals.forEach(d => {
+      const s = computeStatus(d);
+      const active = d.id === state.selectedId;
+      const item = document.createElement("button");
+      item.className = `w-full text-left p-3 rounded-xl border ${active ? "border-slate-900 bg-slate-900/5" : "bg-white hover:bg-slate-50"}`;
+      item.onclick = () => selectDeal(d.id);
+      item.innerHTML = `
+        <div class="flex items-center justify-between">
+          <div class="font-semibold truncate">${escapeHtml(d.title)}</div>
+          <span class="text-xs px-2 py-1 rounded-full border ${badgeClass(s.color)}">${s.badge}</span>
+        </div>
+        <div class="text-xs text-slate-600 mt-1 truncate">${escapeHtml(d.data.instrument||"")} • ${escapeHtml(d.data.lcno||"")}</div>
+      `;
+      dealList.appendChild(item);
+    });
+  }
+
+  function badgeClass(color){
+    if(color==="red") return "border-rose-200 bg-rose-50 text-rose-700";
+    if(color==="amber") return "border-amber-200 bg-amber-50 text-amber-700";
+    return "border-emerald-200 bg-emerald-50 text-emerald-700";
+  }
+
+  function trafficClass(color){
+    if(color==="red") return "bg-rose-500";
+    if(color==="amber") return "bg-amber-500";
+    return "bg-emerald-500";
+  }
+
+  function renderChecklist(container, lvlKey, checklist) {
+    container.innerHTML = "";
+    const deal = getSelected();
+    checklist.forEach(item => {
+      const row = document.createElement("div");
+      row.className = "p-3 rounded-xl border flex flex-col gap-2";
+      const st = deal.checks[lvlKey][item.id];
+      row.innerHTML = `
+        <div class="flex items-start justify-between gap-3">
+          <label class="flex items-start gap-2">
+            <input type="checkbox" class="mt-1" ${st.ok ? "checked":""} data-chk="${lvlKey}:${item.id}">
+            <div>
+              <div class="font-medium">${escapeHtml(item.label)} ${item.must ? '<span class="text-xs text-rose-600">(must)</span>' : '<span class="text-xs text-slate-500">(optional)</span>'}</div>
+              <div class="text-xs text-slate-500">${lvlKey.toUpperCase()} • ${item.id}</div>
+            </div>
+          </label>
+        </div>
+        <textarea class="w-full p-2 rounded-lg border text-sm" placeholder="Evidencia / notas (ej: ‘FIN707 print + ACK recibido’)..." data-note="${lvlKey}:${item.id}">${escapeHtml(st.note||"")}</textarea>
+      `;
+      container.appendChild(row);
+    });
+
+    container.querySelectorAll("input[type=checkbox]").forEach(cb=>{
+      cb.addEventListener("change", (e)=>{
+        const [lvl, id] = e.target.dataset.chk.split(":");
+        const deal = getSelected();
+        deal.checks[lvl][id].ok = e.target.checked;
+        save(state);
+        renderStatusOnly();
+      });
+    });
+
+    container.querySelectorAll("textarea").forEach(tx=>{
+      tx.addEventListener("input", (e)=>{
+        const [lvl, id] = e.target.dataset.note.split(":");
+        const deal = getSelected();
+        deal.checks[lvl][id].note = e.target.value;
+        save(state);
+      });
+    });
+  }
+
+  function getSelected(){
+    return state.deals.find(d => d.id === state.selectedId);
+  }
+
+  function renderDetail() {
+    const deal = getSelected();
+    if(!deal){
+      emptyState.classList.remove("hidden");
+      detail.classList.add("hidden");
+      return;
+    }
+    emptyState.classList.add("hidden");
+    detail.classList.remove("hidden");
+
+    el("dealTitle").textContent = deal.title || "Operación";
+    el("dealSubtitle").textContent = `Creada: ${new Date(deal.createdAt).toLocaleString()}`;
+
+    fields.forEach(f=>{
+      const node = el(f);
+      node.value = deal.data[f] || "";
+      node.oninput = () => {
+        deal.data[f] = node.value;
+        deal.title = (deal.data.lcno ? `LC ${deal.data.lcno}` : deal.title);
+        save(state);
+        renderDealList();
+        renderStatusOnly();
+      };
+    });
+
+    renderChecklist(lvl1List, "level1", defaultChecklists.level1);
+    renderChecklist(lvl2List, "level2", defaultChecklists.level2);
+    renderChecklist(lvl3List, "level3", defaultChecklists.level3);
+
+    renderStatusOnly();
+  }
+
+  function renderStatusOnly(){
+    const deal = getSelected();
+    const s = computeStatus(deal);
+    el("badge").textContent = s.badge;
+    el("badge").className = `text-xs px-2 py-1 rounded-full border ${badgeClass(s.color)}`;
+    el("traffic").className = `w-3 h-3 rounded-full ${trafficClass(s.color)}`;
+    el("statusLine").textContent = s.line;
+    el("statusHint").textContent = s.hint;
+  }
+
+  function render() {
+    renderDealList();
+    renderDetail();
+  }
+
+  // Tabs
+  document.querySelectorAll(".tab").forEach(btn=>{
+    btn.addEventListener("click", ()=>{
+      document.querySelectorAll(".tab").forEach(b=>{
+        b.classList.remove("border-slate-900");
+        b.classList.add("text-slate-600");
+      });
+      btn.classList.add("border-slate-900");
+      btn.classList.remove("text-slate-600");
+
+      document.querySelectorAll(".tabPanel").forEach(p=>p.classList.add("hidden"));
+      el("tab-" + btn.dataset.tab).classList.remove("hidden");
+    });
+  });
+
+  // Modal helpers
+  const modal = el("modal");
+  function openModal(title, text){
+    el("modalTitle").textContent = title;
+    el("modalText").value = text;
+    modal.classList.remove("hidden");
+    modal.classList.add("flex");
+  }
+  function closeModal(){
+    modal.classList.add("hidden");
+    modal.classList.remove("flex");
+  }
+  el("modalClose").onclick = closeModal;
+  el("modalCopy").onclick = async ()=> {
+    await navigator.clipboard.writeText(el("modalText").value);
+    el("modalCopy").textContent = "Copiado ✅";
+    setTimeout(()=> el("modalCopy").textContent = "Copiar", 1200);
+  };
+  modal.addEventListener("click",(e)=>{ if(e.target===modal) closeModal(); });
+
+  // Message generators
+  function issuerMessage(deal){
+    const d = deal.data;
+    return `Please provide SWIFT evidence today:
+1) Full SWIFT print (with headers) for ${d.instrument || "MT700/MT707"} (MIR/MUR visible)
+2) Network ACK/Delivery to ${d.receiverBic || "CHASUS33XXX"}
+3) Send MT799 or MT199 to ${d.receiverBic || "CHASUS33XXX"} requesting/confirming receipt & allocation, quoting:
+- LC/Ref: ${d.lcno || "[LC No]"}
+- MUR: ${d.mur || "[MUR]"}
+- MIR: ${d.mir || "[MIR]"}
+Beneficiary (59): ${d.beneficiary || "[Beneficiary]"}
+If receiver still can’t locate it, please run SWIFT TRACE and share the trace report.`;
+  }
+  function receiverMessage(deal){
+    const d = deal.data;
+    return `This is NOT a wire/MT103 (no UETR). Please check under Trade Finance / Documentary Credits for incoming ${d.instrument || "MT700"} using:
+- Sender BIC: ${d.senderBic || "BAHLPKKACPU"}
+- Receiver BIC: ${d.receiverBic || "CHASUS33XXX"}
+- LC/Ref: ${d.lcno || "[LC No]"}
+- MUR: ${d.mur || "[MUR]"}
+- MIR: ${d.mir || "[MIR]"}
+Confirm status: Received / Pending allocation (unmatched) / Not received + case/ticket number.`;
+  }
+
+  el("btnIssuerMsg").onclick = ()=> {
+    const deal = getSelected();
+    openModal("Mensaje al emisor (copy/paste)", issuerMessage(deal));
+  };
+  el("btnReceiverMsg").onclick = ()=> {
+    const deal = getSelected();
+    openModal("Mensaje al receptor (copy/paste)", receiverMessage(deal));
+  };
+
+  // Buttons
+  el("btnNew").onclick = newDeal;
+  el("btnDelete").onclick = deleteDeal;
+
+  el("btnExport").onclick = ()=>{
+    const blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "tradeverify-export.json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
+  el("fileImport").addEventListener("change",(e)=>{
+    const f = e.target.files?.[0];
+    if(!f) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try{
+        const imported = JSON.parse(reader.result);
+        if(imported && imported.deals) { state = imported; save(state); render(); }
+      }catch{}
+    };
+    reader.readAsText(f);
+  });
+
+  function escapeHtml(str){
+    return (str ?? "").toString()
+      .replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;").replaceAll("'","&#039;");
+  }
+
+  // Init
+  if(state.deals.length === 0) newDeal();
+  else render();
+</script>
+</body>
+</html>
